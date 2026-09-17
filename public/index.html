@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp AI Assistant Simulator & Live Control</title>
+  <style>
+    :root {
+      --wa-green: #00a884;
+      --wa-dark-green: #008069;
+      --wa-bg: #efeae2;
+      --wa-chat-bg: #e5ddd5;
+      --bubble-out: #d9fdd3;
+      --bubble-in: #ffffff;
+      --text-main: #111b21;
+      --text-muted: #667781;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background: #111b21; color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 15px; }
+    .container { display: flex; width: 1280px; height: 94vh; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 35px rgba(0,0,0,0.5); }
+    
+    /* Left: WhatsApp Chat Simulator */
+    .chat-panel { flex: 1.2; display: flex; flex-direction: column; background: var(--wa-chat-bg); border-right: 1px solid #d1d7db; position: relative; }
+    .chat-header { background: #f0f2f5; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e9edef; }
+    .chat-header-left { display: flex; align-items: center; }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--wa-dark-green); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; margin-right: 14px; }
+    .chat-header-info h3 { font-size: 16px; color: var(--text-main); }
+    .chat-header-info p { font-size: 12px; color: var(--wa-green); font-weight: 500; }
+    .config-btn { background: #fff; border: 1px solid #ccd0d5; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
+    .config-btn:hover { background: #e4e6eb; }
+
+    .messages-area { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-image: radial-gradient(#d3c6ba 1px, transparent 1px); background-size: 18px 18px; }
+    .msg { max-width: 75%; padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.45; position: relative; word-break: break-word; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
+    .msg.incoming { background: var(--bubble-in); align-self: flex-start; border-top-left-radius: 0; }
+    .msg.outgoing { background: var(--bubble-out); align-self: flex-end; border-top-right-radius: 0; }
+    .msg-time { font-size: 10px; color: var(--text-muted); float: right; margin-left: 10px; margin-top: 4px; }
+    
+    .chat-footer { background: #f0f2f5; padding: 10px 16px; display: flex; gap: 10px; align-items: center; }
+    .chat-input { flex: 1; padding: 12px 16px; border: none; border-radius: 8px; background: #fff; font-size: 14px; outline: none; }
+    .send-btn { background: var(--wa-dark-green); color: white; border: none; border-radius: 50%; width: 42px; height: 42px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: background 0.2s; }
+    .send-btn:hover { background: var(--wa-green); }
+
+    /* Right: Dashboard Panel */
+    .dashboard-panel { flex: 1; display: flex; flex-direction: column; background: #f8f9fa; overflow-y: auto; }
+    .dash-header { background: #fff; padding: 18px 24px; border-bottom: 1px solid #eaeaea; }
+    .dash-header h2 { font-size: 18px; color: #1e1e1e; }
+    .dash-header p { font-size: 13px; color: #666; margin-top: 4px; }
+
+    .status-ribbon { display: flex; gap: 10px; padding: 12px 24px; background: #eef2f6; border-bottom: 1px solid #dde3ea; }
+    .status-pill { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #fff; border-radius: 12px; font-size: 12px; font-weight: 500; border: 1px solid #d0d7de; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #999; }
+    .status-dot.active { background: #2e7d32; }
+
+    .dash-section { padding: 16px 24px; border-bottom: 1px solid #eee; }
+    .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    
+    .quick-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+    .chip { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; border-radius: 16px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: 0.2s; }
+    .chip:hover { background: #c8e6c9; }
+    .chip.blue { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+    .chip.blue:hover { background: #bbdefb; }
+
+    .card-list { display: flex; flex-direction: column; gap: 8px; max-height: 140px; overflow-y: auto; }
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .card .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge.pending { background: #fff3e0; color: #ef6c00; }
+    .badge.fired { background: #ffebee; color: #c62828; }
+    .badge.done { background: #e8f5e9; color: #2e7d32; text-decoration: line-through; }
+
+    .log-box { background: #212529; color: #adb5bd; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 11px; height: 130px; overflow-y: auto; }
+    .log-entry { margin-bottom: 4px; line-height: 1.4; }
+    .log-entry span { color: #51cf66; }
+
+    /* Alert Banner */
+    .alert-banner { display: none; position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: #d32f2f; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 100; animation: bounce 0.4s infinite alternate; }
+    @keyframes bounce { from { transform: translate(-50%, 0); } to { transform: translate(-50%, -6px); } }
+
+    /* Modal for Settings */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 200; justify-content: center; align-items: center; }
+    .modal-box { background: #fff; width: 560px; max-width: 90vw; border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h3 { font-size: 18px; color: #111; }
+    .close-modal { background: none; border: none; font-size: 22px; cursor: pointer; color: #666; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #333; }
+    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; }
+    .form-group small { display: block; font-size: 11px; color: #666; margin-top: 4px; }
+    .form-group a { color: #008069; text-decoration: none; font-weight: 500; }
+    .save-btn { background: var(--wa-dark-green); color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; }
+    .save-btn:hover { background: var(--wa-green); }
+    .webhook-tip { background: #f0f7ff; border: 1px solid #cce5ff; border-radius: 6px; padding: 12px; font-size: 12px; color: #004085; margin-bottom: 16px; }
+    .webhook-tip code { background: #e0f0ff; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- WhatsApp Simulator -->
+  <div class="chat-panel">
+    <div id="alertBanner" class="alert-banner">⏰ ALARM: Time to check your reminder!</div>
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="avatar">AI</div>
+        <div class="chat-header-info">
+          <h3>WhatsApp AI Assistant</h3>
+          <p id="aiModelIndicator">⚡ Groq LLaMA 3.3 (High-Speed Action & Q&A)</p>
+        </div>
+      </div>
+      <button class="config-btn" onclick="openSettings()">⚙️ Connect API & WhatsApp</button>
+    </div>
+    <div class="messages-area" id="messagesArea">
+      <div class="msg incoming">
+        👋 Hi! I am your WhatsApp AI Assistant.
+        <br><br>I can handle <b>Checklists</b>, <b>Alarms & Reminders</b>, and answer <b>Any General Questions</b> (science, advice, recipes, emails, math, chit-chat)!
+        <br><br>Try typing:
+        <br>• <i>"What are 3 quick high-protein breakfast ideas?"</i>
+        <br>• <i>"Remind me in 5 seconds to drink water"</i>
+        <br>• <i>"Add Submit weekly budget to my checklist"</i>
+        <br>• <i>"Done Submit weekly budget"</i>
+        <br>• <i>"What are my tasks?"</i>
+        <span class="msg-time">Just now</span>
+      </div>
+    </div>
+    <div class="chat-footer">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Ask a question or give a command..." />
+      <button id="sendBtn" class="send-btn">➤</button>
+    </div>
+  </div>
+
+  <!-- Notion / Alarms Dashboard -->
+  <div class="dashboard-panel">
+    <div class="dash-header">
+      <h2>Live Assistant Monitor</h2>
+      <p>Real-time view of AI Intent Engine, Notion Checklist & Scheduled Alarms</p>
+    </div>
+
+    <div class="status-ribbon">
+      <div class="status-pill">
+        <div class="status-dot" id="groqDot"></div>
+        <span id="groqText">AI Brain: Checking...</span>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot" id="waDot"></div>
+        <span id="waText">WhatsApp: Checking...</span>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="section-title">Quick Test Actions</div>
+      <div class="quick-chips">
+        <button class="chip blue" onclick="quickSend('What are 3 quick high-protein breakfast ideas?')">💡 Ask Question (Q&A)</button>
+        <button class="chip" onclick="quickSend('Remind me in 5 seconds to stretch')">⏱ 5s Alarm Test</button>
+        <button class="chip" onclick="quickSend('Add Review product launch checklist')">📝 Add Task</button>
+        <button class="chip" onclick="quickSend('Done Review project architecture')">✅ Complete Task</button>
+        <button class="chip" onclick="quickSend('What are my tasks?')">📋 List Tasks</button>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <div class="section-title">Checklist Items (<span id="taskCount">0</span>)</div>
+      <div class="card-list" id="taskList"></div>
+    </div>
+
+    <div class="dash-section">
+      <div class="section-title">Background Alarms (<span id="alarmCount">0</span>)</div>
+      <div class="card-list" id="alarmList"></div>
+    </div>
+
+    <div class="dash-section">
+      <div class="section-title">Backend Event Logs</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Connect Groq AI & Meta WhatsApp</h3>
+      <button class="close-modal" onclick="closeSettings()">&times;</button>
+    </div>
+
+    <div class="webhook-tip">
+      <b>Meta WhatsApp Webhook Details:</b><br>
+      • Callback URL: <code>https://&lt;your-tunnel-url&gt;/webhook</code><br>
+      • Verify Token: <code id="displayVerifyToken">whatsapp_secret_verify_token_123</code><br>
+      • Webhook Subscription: Subscribe to <code>messages</code> in Meta Developers.
+    </div>
+
+    <div class="form-group">
+      <label>Groq Cloud API Key (For Full General Q&A + llama-3.3-70b):</label>
+      <input type="password" id="inputGroqKey" placeholder="gsk_..." />
+      <small>Free instant key from <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> (Takes 20 seconds, no credit card required).</small>
+    </div>
+
+    <div class="form-group">
+      <label>WhatsApp Cloud API Access Token:</label>
+      <input type="password" id="inputWaToken" placeholder="EAA..." />
+      <small>From Meta for Developers > WhatsApp > API Setup > Temporary/Permanent Token.</small>
+    </div>
+
+    <div class="form-group">
+      <label>WhatsApp Phone Number ID:</label>
+      <input type="text" id="inputWaPhoneId" placeholder="e.g. 104829381029382" />
+      <small>From Meta for Developers > WhatsApp > API Setup > Phone number ID.</small>
+    </div>
+
+    <div class="form-group">
+      <label>WhatsApp Verify Token (Secret password):</label>
+      <input type="text" id="inputWaVerifyToken" value="whatsapp_secret_verify_token_123" />
+    </div>
+
+    <button class="save-btn" onclick="saveSettings()">Save & Connect Live System</button>
+  </div>
+</div>
+
+<script>
+  const messagesArea = document.getElementById('messagesArea');
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const taskList = document.getElementById('taskList');
+  const alarmList = document.getElementById('alarmList');
+  const logBox = document.getElementById('logBox');
+  const taskCount = document.getElementById('taskCount');
+  const alarmCount = document.getElementById('alarmCount');
+  const alertBanner = document.getElementById('alertBanner');
+  const settingsModal = document.getElementById('settingsModal');
+
+  const groqDot = document.getElementById('groqDot');
+  const groqText = document.getElementById('groqText');
+  const waDot = document.getElementById('waDot');
+  const waText = document.getElementById('waText');
+
+  function openSettings() {
+    loadConfig();
+    settingsModal.style.display = 'flex';
+  }
+
+  function closeSettings() {
+    settingsModal.style.display = 'none';
+  }
+
+  async function loadConfig() {
+    try {
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      if (data.groqConnected) {
+        groqDot.className = 'status-dot active';
+        groqText.textContent = `Groq AI Active (${data.groqKeyMasked})`;
+      } else {
+        groqDot.className = 'status-dot';
+        groqText.textContent = 'Groq AI: Local Fallback (Add Key for Q&A)';
+      }
+
+      if (data.whatsAppConnected) {
+        waDot.className = 'status-dot active';
+        waText.textContent = 'WhatsApp Cloud API: Connected';
+      } else {
+        waDot.className = 'status-dot';
+        waText.textContent = 'WhatsApp: Simulator Mode';
+      }
+
+      if (data.verifyToken) {
+        document.getElementById('displayVerifyToken').textContent = data.verifyToken;
+        document.getElementById('inputWaVerifyToken').value = data.verifyToken;
+      }
+      if (data.phoneId) {
+        document.getElementById('inputWaPhoneId').value = data.phoneId;
+      }
+    } catch (e) {}
+  }
+
+  async function saveSettings() {
+    const groqApiKey = document.getElementById('inputGroqKey').value;
+    const whatsappToken = document.getElementById('inputWaToken').value;
+    const whatsappPhoneId = document.getElementById('inputWaPhoneId').value;
+    const whatsappVerifyToken = document.getElementById('inputWaVerifyToken').value;
+
+    const payload = {};
+    if (groqApiKey) payload.groqApiKey = groqApiKey;
+    if (whatsappToken) payload.whatsappToken = whatsappToken;
+    if (whatsappPhoneId) payload.whatsappPhoneId = whatsappPhoneId;
+    if (whatsappVerifyToken) payload.whatsappVerifyToken = whatsappVerifyToken;
+
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      alert(data.message || 'Settings updated!');
+      closeSettings();
+      loadConfig();
+    } catch (err) {
+      alert('Error updating configuration.');
+    }
+  }
+
+  function appendMsg(text, type) {
+    const div = document.createElement('div');
+    div.className = `msg ${type}`;
+    div.innerHTML = `${text.replace(/\n/g, '<br>')} <span class="msg-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
+    messagesArea.appendChild(div);
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    appendMsg(text, 'outgoing');
+    chatInput.value = '';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      appendMsg(data.reply, 'incoming');
+      updateUI();
+    } catch (e) {
+      appendMsg('Error communicating with assistant backend.', 'incoming');
+    }
+  }
+
+  function quickSend(text) {
+    chatInput.value = text;
+    sendMessage();
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+  async function updateUI() {
+    try {
+      const res = await fetch('/api/state');
+      const data = await res.json();
+
+      // Tasks
+      taskCount.textContent = data.tasks.length;
+      taskList.innerHTML = data.tasks.map(t => `
+        <div class="card">
+          <span style="${t.status === 'Done' ? 'text-decoration: line-through; color: #888;' : ''}">${t.title}</span>
+          <span class="badge ${t.status.toLowerCase()}">${t.status}</span>
+        </div>
+      `).join('') || '<div style="color:#999; font-size:12px;">No tasks yet</div>';
+
+      // Alarms
+      alarmCount.textContent = data.alarms.length;
+      alarmList.innerHTML = data.alarms.map(a => `
+        <div class="card">
+          <span>${a.label} (${new Date(a.time).toLocaleTimeString()})</span>
+          <span class="badge ${a.status.toLowerCase()}">${a.status}</span>
+        </div>
+      `).join('') || '<div style="color:#999; font-size:12px;">No active alarms</div>';
+
+      // Logs
+      logBox.innerHTML = data.logs.map(l => `
+        <div class="log-entry"><span>[${l.time}]</span> ${l.message}</div>
+      `).join('');
+
+      // Check fired notifications
+      if (data.notifications && data.notifications.length > 0) {
+        data.notifications.forEach(n => {
+          alertBanner.textContent = `⏰ ALARM TRIGGERED: "${n.label}"!`;
+          alertBanner.style.display = 'block';
+          setTimeout(() => { alertBanner.style.display = 'none'; }, 6000);
+        });
+      }
+    } catch (err) {}
+  }
+
+  // Poll state every 1.5 seconds
+  setInterval(updateUI, 1500);
+  updateUI();
+  loadConfig();
+</script>
+
+</body>
+</html>

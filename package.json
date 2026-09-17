@@ -1,0 +1,11 @@
+{
+  "name": "whatsapp-ai-assistant",
+  "version": "1.0.0",
+  "description": "Zero-friction standalone WhatsApp AI Assistant with Groq, Notion, and Web Simulator",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}
