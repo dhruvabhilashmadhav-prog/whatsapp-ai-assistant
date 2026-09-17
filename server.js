@@ -11,7 +11,11 @@ if (fs.existsSync(envPath)) {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#')) {
       const [key, ...vals] = trimmed.split('=');
-      process.env[key.trim()] = vals.join('=').trim();
+      const k = key.trim();
+      const v = vals.join('=').trim();
+      if (k && !process.env[k] && v) {
+        process.env[k] = v;
+      }
     }
   });
 }
@@ -331,10 +335,11 @@ async function handleAction(parsed, sender = 'Simulator') {
 // HTTP Server
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
+  const rawPath = parsedUrl.pathname || '/';
+  const cleanPath = rawPath.length > 1 && rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath;
 
   // Static Files (Web Simulator Dashboard)
-  if (pathname === '/' || pathname === '/index.html') {
+  if (cleanPath === '/' || cleanPath === '/index.html') {
     const filePath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(filePath)) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -344,24 +349,30 @@ const server = http.createServer(async (req, res) => {
     return res.end('Dashboard not found.');
   }
 
-  // Meta WhatsApp Cloud API Verification Webhook (GET)
-  if (pathname === '/webhook' && req.method === 'GET') {
-    const mode = parsedUrl.query['hub.mode'];
-    const token = parsedUrl.query['hub.verify_token'];
-    const challenge = parsedUrl.query['hub.challenge'];
+  // Health check
+  if (cleanPath === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+  }
 
-    if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
+  // Meta WhatsApp Cloud API Verification Webhook (GET)
+  if (cleanPath === '/webhook' && req.method === 'GET') {
+    const mode = parsedUrl.query ? parsedUrl.query['hub.mode'] : null;
+    const token = parsedUrl.query ? parsedUrl.query['hub.verify_token'] : null;
+    const challenge = parsedUrl.query ? parsedUrl.query['hub.challenge'] : null;
+
+    if (token === WHATSAPP_VERIFY_TOKEN) {
       addLog('WhatsApp Cloud API Webhook verified successfully.');
       res.writeHead(200, { 'Content-Type': 'text/plain' });
-      return res.end(challenge);
+      return res.end(challenge ? String(challenge) : 'OK');
     }
-    addLog('WhatsApp Webhook verification failed. Token mismatch.');
-    res.writeHead(403);
+    addLog(`WhatsApp Webhook verification failed. Token received: ${token}, expected: ${WHATSAPP_VERIFY_TOKEN}`);
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
     return res.end('Verification token mismatch');
   }
 
   // Meta WhatsApp Cloud API Inbound Messages Webhook (POST)
-  if (pathname === '/webhook' && req.method === 'POST') {
+  if (cleanPath === '/webhook' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
@@ -391,7 +402,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Web Simulator Chat API (POST)
-  if (pathname === '/api/chat' && req.method === 'POST') {
+  if (cleanPath === '/api/chat' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
@@ -419,7 +430,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // State & Notifications Polling API (GET)
-  if (pathname === '/api/state' && req.method === 'GET') {
+  if (cleanPath === '/api/state' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     const notifications = [...state.notifications];
     state.notifications = []; // Clear read notifications
@@ -432,7 +443,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Config Status & Live Key Update API (GET/POST)
-  if (pathname === '/api/config' && req.method === 'GET') {
+  if (cleanPath === '/api/config' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       groqConnected: !!GROQ_API_KEY,
@@ -444,7 +455,7 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
-  if (pathname === '/api/config' && req.method === 'POST') {
+  if (cleanPath === '/api/config' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
@@ -476,7 +487,7 @@ const server = http.createServer(async (req, res) => {
   res.end('Not Found');
 });
 
-server.listen(PORT, () => {
-  addLog(`WhatsApp AI Assistant microservice running on http://localhost:${PORT}`);
-  console.log(`\n🚀 Open your browser at: http://localhost:${PORT}\n`);
+server.listen(PORT, '0.0.0.0', () => {
+  addLog(`WhatsApp AI Assistant microservice running on http://0.0.0.0:${PORT}`);
+  console.log(`\n🚀 Server listening on 0.0.0.0:${PORT}\n`);
 });
